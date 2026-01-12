@@ -12,7 +12,6 @@
         body { margin: 0; padding: 0; font-family: 'Helvetica Neue', Arial, sans-serif; background: #111; color: #fff; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
         
-        /* UI Overlay */
         #console {
             position: absolute;
             top: 20px;
@@ -28,10 +27,10 @@
         h1 { font-size: 18px; margin: 0 0 10px; color: #ff5e00; text-transform: uppercase; letter-spacing: 1px; }
         p { font-size: 12px; line-height: 1.5; color: #ccc; margin-bottom: 20px; }
         
-        /* Slider Styling */
         .session { margin-bottom: 20px; }
-        .row { height: 12px; width: 100%; }
         .label { font-size: 12px; color: #ccc; display: flex; justify-content: space-between; margin-top: 5px;}
+        
+        /* Slider Styling */
         input[type=range] {
             width: 100%;
             -webkit-appearance: none;
@@ -39,6 +38,7 @@
             height: 4px;
             border-radius: 2px;
             outline: none;
+            margin: 10px 0;
         }
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
@@ -48,9 +48,13 @@
             background: #ff5e00;
             cursor: pointer;
             border: 2px solid #fff;
+            transition: background .2s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            background: #ff8c00;
+            transform: scale(1.1);
         }
 
-        /* Legend */
         .legend-key { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
         .legend-item { display: flex; align-items: center; font-size: 12px; margin-bottom: 5px; }
         
@@ -70,11 +74,15 @@
     <p>Visualizing MODIS/VIIRS thermal anomalies for the last 7 days across Australia & SE Asia.</p>
     
     <div class="session">
-        <div class="label" style="font-weight:bold; color:white; margin-bottom:10px;">Filter by Day: <span id="active-date">All</span></div>
-        <input id="slider" type="range" min="0" max="6" step="1" value="6">
+        <div class="label" style="font-weight:bold; color:white; margin-bottom:5px;">
+            Filter: <span id="active-date" style="color:#ff5e00">Loading...</span>
+        </div>
+        
+        <input id="slider" type="range" disabled>
+        
         <div class="label">
-            <span id="start-date">-7 Days</span>
-            <span>Today</span>
+            <span id="start-date">Oldest</span>
+            <span id="end-date">Latest</span>
         </div>
     </div>
 
@@ -89,50 +97,37 @@
 <div id="map"></div>
 
 <script>
-    // 1. Initialize MapLibre (Free open-source alternative to Mapbox)
     const map = new maplibregl.Map({
         container: 'map',
-        // Using Carto's Dark Matter style for free (great for visualizing light/fire)
         style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-        center: [133.7751, -25.2744], // Center on Australia
+        center: [133.7751, -25.2744],
         zoom: 3.5
     });
 
-    // URLs for NASA FIRMS Data (MODIS C6.1) - 7 Day rolling csv
-    // We use a corsproxy because NASA servers sometimes block direct browser requests from local files
     const region = "Australia_NewZealand"; 
     const nasaUrl = `https://firms.modaps.eosdis.nasa.gov/data/active_fire/modis-c6.1/csv/MODIS_C6_1_${region}_7d.csv`;
     const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(nasaUrl);
 
-    let wildfireData = null; // Store the GeoJSON here
-    const dates = []; // Store unique dates for the slider
+    let wildfireData = null;
+    const dates = [];
 
     map.on('load', () => {
-        
-        // 2. Fetch and Parse Data
         Papa.parse(proxyUrl, {
             download: true,
             header: true,
             dynamicTyping: true,
             complete: function(results) {
-                // Remove loading spinner
                 document.getElementById('loading').style.display = 'none';
                 
-                // Convert CSV to GeoJSON
                 const geojson = {
                     type: "FeatureCollection",
                     features: results.data
-                        .filter(row => row.latitude && row.longitude) // Filter invalid rows
+                        .filter(row => row.latitude && row.longitude)
                         .map(row => {
-                            // Extract unique dates for our slider logic
                             if (!dates.includes(row.acq_date)) dates.push(row.acq_date);
-                            
                             return {
                                 type: "Feature",
-                                geometry: {
-                                    type: "Point",
-                                    coordinates: [row.longitude, row.latitude]
-                                },
+                                geometry: { type: "Point", coordinates: [row.longitude, row.latitude] },
                                 properties: {
                                     brightness: row.brightness,
                                     date: row.acq_date,
@@ -142,77 +137,95 @@
                         })
                 };
                 
-                // Sort dates for the slider
                 dates.sort();
                 wildfireData = geojson;
-                
-                // Update slider UI labels
-                document.getElementById('start-date').innerText = dates[0];
-                document.getElementById('active-date').innerText = dates[dates.length-1];
 
+                // --- FIX 1: Configure Slider AFTER data load ---
+                const slider = document.getElementById('slider');
+                
+                // Set max to dates.length. 
+                // If we have 7 days (indices 0-6), max=7. Index 7 will be "Show All".
+                slider.max = dates.length; 
+                slider.min = 0;
+                slider.step = 1;
+                
+                // Set initial view to the LATEST day (dates.length - 1) to avoid initial clutter
+                slider.value = dates.length - 1; 
+                slider.disabled = false;
+
+                // Set Labels
+                document.getElementById('start-date').innerText = dates[0];
+                document.getElementById('end-date').innerText = "All Days"; // Update label to indicate the end option
+                
+                // Add layer and apply INITIAL filter
                 addFireLayer(geojson);
+                
+                // Trigger the filter logic immediately for the initial state
+                updateFilter(parseInt(slider.value)); 
             },
             error: function(err) {
                 console.error("Error fetching NASA data:", err);
-                document.getElementById('loading').innerText = "Error loading data. Check console.";
+                document.getElementById('loading').innerText = "Error loading data.";
             }
         });
     });
 
-    // 3. Visualization Logic
-    function addFireLayer(data) {
-        // Add Source
-        map.addSource('fires', {
-            type: 'geojson',
-            data: data
-        });
+    // --- FIX 2: Extracted Filter Logic for re-use ---
+    function updateFilter(index) {
+        const sliderLabel = document.getElementById('active-date');
+        
+        if (index === dates.length) {
+            // Option A: Slider is at the very end ("All Days")
+            // Remove the filter to show everything
+            map.setFilter('fire-points', null);
+            sliderLabel.innerText = "All 7 Days (Aggregated)";
+        } else {
+            // Option B: Slider is on a specific day
+            const selectedDate = dates[index];
+            sliderLabel.innerText = selectedDate;
+            map.setFilter('fire-points', ['==', ['get', 'date'], selectedDate]);
+        }
+    }
 
-        // Add Layer (Heatmap/Circle style)
+    function addFireLayer(data) {
+        map.addSource('fires', { type: 'geojson', data: data });
+
         map.addLayer({
             id: 'fire-points',
             type: 'circle',
             source: 'fires',
             paint: {
-                // Size circle by confidence (higher confidence = bigger)
                 'circle-radius': [
                     'interpolate', ['linear'], ['zoom'],
-                    3, 2,  // At zoom 3, 2px radius
-                    10, 8  // At zoom 10, 8px radius
+                    3, 2,
+                    10, 8
                 ],
-                // Color circle by brightness (Temperature in Kelvin)
                 'circle-color': [
                     'step', ['get', 'brightness'],
-                    '#ffeb3b', // Yellow (Low)
-                    320, '#ff9800', // Orange (Medium)
-                    350, '#ff2a00'  // Red (High)
+                    '#ffeb3b',
+                    320, '#ff9800',
+                    350, '#ff2a00'
                 ],
                 'circle-opacity': 0.8,
                 'circle-stroke-width': 0
             }
         });
 
-        // 4. Interaction: Time Slider
+        // Interaction: Time Slider
         document.getElementById('slider').addEventListener('input', (e) => {
             const index = parseInt(e.target.value);
-            const selectedDate = dates[index];
-            document.getElementById('active-date').innerText = selectedDate;
-
-            // MapLibre Filter: Show only features where 'date' == selectedDate
-            map.setFilter('fire-points', ['==', ['get', 'date'], selectedDate]);
+            updateFilter(index);
         });
         
-        // Interaction: Hover Pointer
+        // Interaction: Hover & Click
         map.on('mouseenter', 'fire-points', () => map.getCanvas().style.cursor = 'pointer');
         map.on('mouseleave', 'fire-points', () => map.getCanvas().style.cursor = '');
         
-        // Interaction: Click for details
         map.on('click', 'fire-points', (e) => {
-            const coordinates = e.features[0].geometry.coordinates.slice();
             const props = e.features[0].properties;
-
             new maplibregl.Popup()
-                .setLngLat(coordinates)
-                .setHTML(`<strong>Date:</strong> ${props.date}<br><strong>Brightness:</strong> ${props.brightness}K<br><strong>Confidence:</strong> ${props.confidence}%`)
+                .setLngLat(e.lngLat)
+                .setHTML(`<strong>Date:</strong> ${props.date}<br><strong>Brightness:</strong> ${props.brightness}K`)
                 .addTo(map);
         });
     }
