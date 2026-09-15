@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FireWatch — Active Fire Tracking, Australia</title>
+<title>FireWatch - Active Fire Tracking, Australia</title>
 <meta name="description" content="VIIRS and MODIS thermal anomaly detections over Australia, clustered into discrete fire complexes and tracked for day-over-day growth.">
 
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
@@ -209,7 +209,7 @@ details.method[open] summary::after{content:'–'}
 
   <div id="sidebar-scroll">
     <h1>FIRE<span>WATCH</span></h1>
-    <div class="subtitle" id="region-line">Active fire detections — Australia</div>
+    <div class="subtitle" id="region-line">Active fire detections - Australia</div>
     <div class="freshness"><span class="dot" id="fresh-dot"></span><span id="fresh-text">Loading…</span></div>
 
     <div class="section-label">Time</div>
@@ -293,32 +293,32 @@ details.method[open] summary::after{content:'–'}
       <summary>Method &amp; limitations</summary>
       <div class="method-body">
         <h4>Data pipeline</h4>
-        <p>A scheduled GitHub Action queries the NASA FIRMS Area API every six hours with a key held as a repository secret, normalises the differing MODIS and VIIRS schemas, clusters the detections, and commits static GeoJSON. The page fetches same-origin files and calls no external API at runtime — so it cannot be broken by a third-party proxy or an expired browser key.</p>
+        <p>A scheduled GitHub Action queries the NASA FIRMS Area API every six hours with a key held as a repository secret, normalises the differing MODIS and VIIRS schemas, clusters the detections, and commits static GeoJSON. The page fetches same-origin files and calls no external API at runtime, thereby avoiding being broken by a third-party proxy or an expired browser key.</p>
 
-        <h4>What a detection is — and is not</h4>
-        <p>Each point is a <strong>thermal anomaly</strong>: a satellite pixel whose mid-infrared signature exceeded a threshold at the moment of overpass. It is not a fire perimeter, and its position is the pixel centroid — VIIRS pixels are ~375&nbsp;m across, MODIS ~1&nbsp;km at nadir and considerably larger off-nadir. Gas flares, industrial heat and hot bare ground all produce detections.</p>
+        <h4>What a detection is - and is not</h4>
+        <p>Each point is a <strong>thermal anomaly</strong>: a satellite pixel whose mid-infrared signature exceeded a threshold at the moment of overpass. It is not a fire perimeter, and its position is the pixel centroid - VIIRS pixels are ~375&nbsp;m across, MODIS ~1&nbsp;km at nadir and considerably larger off-nadir. Gas flares, industrial heat and hot bare ground all produce detections.</p>
 
         <h4>Intensity</h4>
         <p>Colour encodes <strong>Fire Radiative Power</strong> (megawatts) on a log scale, not brightness temperature. FRP is a physical measure of the rate of energy release; brightness temperature saturates and varies with how much of the pixel the fire actually fills.</p>
 
         <h4>Radiative energy (FRE)</h4>
-        <p>Each FRP value is an <em>instantaneous</em> rate. Adding readings taken hours apart would not give a physical total, because power does not sum across time — energy does. So complexes are measured by <strong>Fire Radiative Energy</strong>: FRP integrated over time, in gigajoules. This is the quantity the literature uses for cumulative burning, and it is what the complex ranking is sorted by.</p>
-        <p>The integration is trapezoidal over satellite overpasses, computed <strong>per complex</strong> rather than region-wide — a complex is small enough to be imaged whole in one pass, whereas at any instant only part of the continent sits under a swath, so a continental FRP series would undercount at every point and the integral would compound that error.</p>
+        <p>Each FRP value is an <em>instantaneous</em> rate. Adding readings taken hours apart would not give a physical total, because power does not sum across time - energy does. So complexes are measured by <strong>Fire Radiative Energy</strong>: FRP integrated over time, in gigajoules. This is the quantity the literature uses for cumulative burning, and it is what the complex ranking is sorted by.</p>
+        <p>The integration is trapezoidal over satellite overpasses, computed <strong>per complex</strong> rather than region-wide - a complex is small enough to be imaged whole in one pass, whereas at any instant only part of the continent sits under a swath, so a continental FRP series would undercount at every point and the integral would compound that error.</p>
 
         <h4>The three assumptions, stated</h4>
         <ul>
           <li><strong>Overpass binning.</strong> Detections within 15 minutes are treated as one observation of the complex and their FRP is summed.</li>
-          <li><strong>Edge interval.</strong> The first and last observation of a burst have no neighbour on one side, so each is credited with half the region's <em>median</em> observed overpass interval — measured from this dataset each run, not assumed from the nominal satellite count. The value used is recorded in <code>meta.json</code>.</li>
-          <li><strong>Gap cap.</strong> Where a complex went unobserved for more than 12 hours — almost always cloud — the gap is <em>not</em> bridged. Interpolating across it would invent burning nobody measured. Each side is credited a bounded tail instead, so FRE stops growing with the length of the hole.</li>
+          <li><strong>Edge interval.</strong> The first and last observation of a burst have no neighbour on one side, so each is credited with half the region's <em>median</em> observed overpass interval - measured from this dataset each run, not assumed from the nominal satellite count. The value used is recorded in <code>meta.json</code>.</li>
+          <li><strong>Gap cap.</strong> Where a complex went unobserved for more than 12 hours - almost always cloud - the gap is <em>not</em> bridged. Interpolating across it would invent burning nobody measured. Each side is credited a bounded tail instead, so FRE stops growing with the length of the hole.</li>
         </ul>
         <p>These choices make FRE a defensible lower bound rather than a precise figure. Sparse sampling is the dominant source of error: fires peak mid-afternoon, and if no overpass catches that peak the integral misses it entirely. Treat these numbers as comparative, not absolute.</p>
-        <p>FRE is integrated over <em>all</em> detections and so does not respond to the confidence and sensor filters — dropping observations from an energy integral would bias it downward rather than subset it. <code>Peak detection</code> is a single instantaneous measurement and is directly meaningful.</p>
+        <p>FRE is integrated over <em>all</em> detections and so does not respond to the confidence and sensor filters - dropping observations from an energy integral would bias it downward rather than subset it. <code>Peak detection</code> is a single instantaneous measurement and is directly meaningful.</p>
 
         <h4>Clustering</h4>
-        <p>Detections across the whole window are grouped with <strong>DBSCAN</strong> (<code>eps = 1.5 km</code>, <code>minPts = 3</code>). The 1.5&nbsp;km radius links pixels up to roughly four VIIRS cells apart — the scale of a contiguous fire front — while <code>minPts = 3</code> discards isolated single-pixel detections, which is where most false positives live. Clusters are drawn as convex hulls; a hull is an <em>over</em>-estimate of burnt area for a concave or ribbon-shaped fire.</p>
+        <p>Detections across the whole window are grouped with <strong>DBSCAN</strong> (<code>eps = 1.5 km</code>, <code>minPts = 3</code>). The 1.5&nbsp;km radius links pixels up to roughly four VIIRS cells apart - the scale of a contiguous fire front - while <code>minPts = 3</code> discards isolated single-pixel detections, which is where most false positives live. Clusters are drawn as convex hulls; a hull is an <em>over</em>-estimate of burnt area for a concave or ribbon-shaped fire.</p>
 
         <h4>Growth</h4>
-        <p>Trend compares the latest day's detection count against the mean of the preceding days that complex was active — a ratio, so small and large fires are comparable. Detection counts are a proxy for activity, confounded by cloud cover, overpass timing and swath geometry: a fire can appear to "shrink" simply because cloud obscured the afternoon pass.</p>
+        <p>Trend compares the latest day's detection count against the mean of the preceding days that complex was active - a ratio, so small and large fires are comparable. Detection counts are a proxy for activity, confounded by cloud cover, overpass timing and swath geometry: a fire can appear to "shrink" simply because cloud obscured the afternoon pass.</p>
 
         <h4>Known limits</h4>
         <ul>
@@ -462,9 +462,6 @@ const map = new mapboxgl.Map({
   zoom: state.zoom,
   minZoom: 2,
   maxZoom: 16,
-  // Globe is safe here in a way it was not in the crime dashboard: nothing in
-  // this build derives a query from map.getBounds(), so the projection cannot
-  // corrupt a data request. At continental scale it also simply reads better.
   projection: 'globe'
 });
 
@@ -713,7 +710,7 @@ function updateStats() {
   document.getElementById('s-detections').textContent = fmt(feats.length);
   document.getElementById('s-complexes').textContent = fmt(complexes);
   // FRE is integrated per complex in the ETL over ALL detections, so it does not
-  // respond to the confidence/sensor filters — excluding observations from an
+  // respond to the confidence/sensor filters - excluding observations from an
   // energy integral would bias it downward rather than filter it. It does respect
   // the day filter, because the integration is attributed per day.
   document.getElementById('s-fre').textContent = fmtEnergy(extentFRE());
