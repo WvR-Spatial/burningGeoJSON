@@ -1,0 +1,1 @@
+{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[131.9666,-23.17]},"properties":{"d":"2026-09-19","t":"0001","frp":10.3,"b":309.4,"c":1,"s":"MODIS","n":0}},{"type":"Feature","geometry":{"type":"Point","coordinates":[133.509,-22.5215]},"properties":{"d":"2026-09-19","t":"0001","frp":24.3,"b":313.9,"c":1,"s":"MODIS","n":0}}]}
